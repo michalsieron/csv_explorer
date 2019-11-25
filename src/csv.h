@@ -13,5 +13,7 @@ typedef struct
  * Read given file byte by byte.
  */
 CSV* CSVreadFile(CSV* csvp, FILE* fp);
+char* CSVgetCell(CSV* csvp, unsigned long row, unsigned short col);
+void CSVprintRow(CSV* csvp, unsigned long row);
 void CSVprintInfo(CSV* csvp);
 void CSVclean(CSV* csvp);

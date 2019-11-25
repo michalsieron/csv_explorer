@@ -14,8 +14,13 @@ int main()
         printf("\nZostal otworzony plik %s\n", filepath);
         CSVreadFile(&csv, fp);
         CSVprintInfo(&csv);
+
+        for (unsigned long row = 0; row < csv.rows; row++)
+            CSVprintRow(&csv, row);
+
         CSVclean(&csv);
     }
+    
     fclose(fp);
     return 0;
 }

@@ -153,16 +153,22 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 	return csvp;
 }
 
+char* CSVgetCell(CSV* csvp, unsigned long row, unsigned short col)
+{
+	return csvp->table[row * csvp->cols + col];
+}
+
+void CSVprintRow(CSV* csvp, unsigned long row)
+{
+	for (unsigned short col = 0; col < csvp->cols; col++)
+	{
+		printf("%s\n", CSVgetCell(csvp, row, col));
+	}
+}
+
 void CSVprintInfo(CSV* csvp)
 {
 	printf("Dokument CSV zawiera %lu wierszy po %hu kolumn kazdy.\n", csvp->rows, csvp->cols);
-	for (unsigned long i = 0; i < csvp->rows; i++)
-	{
-		for (unsigned short j = 0; j < csvp->cols; j++)
-			printf("%s\t", csvp->table[i * csvp->cols + j]);
-		
-		printf("\n");
-	}
 }
 
 void CSVclean(CSV* csvp)
