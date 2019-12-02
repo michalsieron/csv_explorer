@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "csv.h"
 /*
@@ -11,11 +12,14 @@
 CSV* CSVreadFile(CSV* csvp, FILE* fp)
 {
 	char** buffer = NULL;
+	char** header = NULL;
 	char readChar = '\0';
 	char lastChar = '\0';
   
   unsigned long rows = 1;
-	unsigned short cells = 1;
+	unsigned short cols = 1;
+	unsigned short currentColumn = 1;
+	unsigned long cells = 1;
 	unsigned short positionInCell = 0;
 
 	bool inQuote = false;
@@ -34,22 +38,26 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 
 		if (inQuote)
 		{
+			// printf("inQuote\n");
       temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
       if (temp != NULL)
       {
-        buffer = temp;
+        buffer[cells - 1] = temp;
       }
       else
       {
         // don't know what to do here yet
       }
-
+			// printf("succesfully realloced space\n");
+			// printf("just before condition lastChar = %hhd and readChar = %hhd\n", lastChar, readChar);
       if (lastChar == '"' && readChar != '"')
       {
+				// printf("exiting Quote\n");
         inQuote = false;
       }
 			buffer[cells - 1][positionInCell] = lastChar;
 			positionInCell++;
+			lastChar = readChar;
 		}
 		else
 		{
@@ -83,21 +91,27 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 							// don't know what to do here yet
 						}
 					}
+					currentColumn++;
 					break;
 
         case '"':
-          temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+					// printf("in '\"' case\n");
+          // temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+					temp = (char*)realloc(*(buffer + cells - 1), (positionInCell + 2) * sizeof(char));
           if (temp != NULL)
           {
-            buffer = temp;
+            buffer[cells - 1] = temp;
           }
           else
           {
             // don't know what to do here yet
           }
-          buffer[cells - 1][positionInCell - 1] = lastChar;
+          // buffer[cells - 1][positionInCell - 1] = lastChar;
+					// printf("succesfully realloced space\n");
+					*(*(buffer + cells - 1) + positionInCell) = lastChar;
 			    positionInCell++;
           inQuote = true;
+					// printf("exiting '\"' case\n");
           break;
 
         case '\n':
@@ -105,26 +119,29 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
           positionInCell = 0;
 					cells++;
           rows++;
+					temp = (char**)realloc(buffer, cells * sizeof(char*));
+					if (temp != NULL)
 					{
-						temp = (char**)realloc(buffer, cells * sizeof(char*));
+						buffer = temp;
+						temp = (char*)calloc(1, sizeof(char));
 						if (temp != NULL)
 						{
-							buffer = temp;
-							temp = (char*)calloc(1, sizeof(char));
-							if (temp != NULL)
-							{
-								buffer[cells - 1] = temp;
-							}
-							else
-							{
-								// don't know what to do here yet
-							}
+							buffer[cells - 1] = temp;
 						}
 						else
 						{
 							// don't know what to do here yet
 						}
 					}
+					else
+					{
+						// don't know what to do here yet
+					}
+					if (rows == 2)
+					{
+						cols = currentColumn;
+					}
+					currentColumn = 1;
           break;
 
         default:
@@ -147,7 +164,7 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 	buffer[cells - 1][positionInCell] = '\0';
 
 	csvp->rows = rows;
-	csvp->cols = cells / rows;
+	csvp->cols = cols;
 	csvp->table = buffer;
 
 	return csvp;
@@ -158,11 +175,20 @@ char* CSVgetCell(CSV* csvp, unsigned long row, unsigned short col)
 	return csvp->table[row * csvp->cols + col];
 }
 
+char* CSVsetCell(CSV* csvp, unsigned long row, unsigned short col, char* str)
+{
+	free(csvp->table[row * csvp->cols + col]);
+	csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
+	strcpy(csvp->table[row * csvp->cols + col], str);
+	// csvp->table[row * csvp->cols + col] = str;
+	return str;
+}
+
 void CSVprintRow(CSV* csvp, unsigned long row)
 {
 	for (unsigned short col = 0; col < csvp->cols; col++)
 	{
-		printf("%s\n", CSVgetCell(csvp, row, col));
+		printf("%s: %s\n", CSVgetCell(csvp, 0, col), CSVgetCell(csvp, row, col));
 	}
 }
 

@@ -15,12 +15,21 @@ int main()
         CSVreadFile(&csv, fp);
         CSVprintInfo(&csv);
 
-        for (unsigned long row = 0; row < csv.rows; row++)
+        for (unsigned long row = 1; row < csv.rows; row++)
+        {
             CSVprintRow(&csv, row);
+            printf("\n");
+        }
+        CSVsetCell(&csv, 1, 1, "new \ncontent boiz");
 
+        for (unsigned long row = 1; row < csv.rows; row++)
+        {
+            CSVprintRow(&csv, row);
+            printf("\n");
+        }
         CSVclean(&csv);
     }
-    
+
     fclose(fp);
     return 0;
 }
