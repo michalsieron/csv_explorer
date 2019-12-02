@@ -15,8 +15,8 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 	char** header = NULL;
 	char readChar = '\0';
 	char lastChar = '\0';
-  
-  unsigned long rows = 1;
+
+	unsigned long rows = 1;
 	unsigned short cols = 1;
 	unsigned short currentColumn = 1;
 	unsigned long cells = 1;
@@ -26,9 +26,9 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 	
 	do
 	{
-    void* temp = NULL;
+	void* temp = NULL;
 		readChar = fgetc(fp);
-    // printf("i read char: %3hhd | %c\n", readChar, readChar);
+		// printf("i read char: %3hhd | %c\n", readChar, readChar);
 		
 		if (buffer == NULL)
 		{
@@ -39,22 +39,22 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 		if (inQuote)
 		{
 			// printf("inQuote\n");
-      temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
-      if (temp != NULL)
-      {
-        buffer[cells - 1] = temp;
-      }
-      else
-      {
-        // don't know what to do here yet
-      }
+			temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+			if (temp != NULL)
+			{
+				buffer[cells - 1] = temp;
+			}
+			else
+			{
+				// don't know what to do here yet
+			}
 			// printf("succesfully realloced space\n");
 			// printf("just before condition lastChar = %hhd and readChar = %hhd\n", lastChar, readChar);
-      if (lastChar == '"' && readChar != '"')
-      {
+			if (lastChar == '"' && readChar != '"')
+			{
 				// printf("exiting Quote\n");
-        inQuote = false;
-      }
+				inQuote = false;
+			}
 			buffer[cells - 1][positionInCell] = lastChar;
 			positionInCell++;
 			lastChar = readChar;
@@ -94,31 +94,31 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 					currentColumn++;
 					break;
 
-        case '"':
+				case '"':
 					// printf("in '\"' case\n");
-          // temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+					// temp = (char*)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
 					temp = (char*)realloc(*(buffer + cells - 1), (positionInCell + 2) * sizeof(char));
-          if (temp != NULL)
-          {
-            buffer[cells - 1] = temp;
-          }
-          else
-          {
-            // don't know what to do here yet
-          }
-          // buffer[cells - 1][positionInCell - 1] = lastChar;
+					if (temp != NULL)
+					{
+						buffer[cells - 1] = temp;
+					}
+					else
+					{
+						// don't know what to do here yet
+					}
+					// buffer[cells - 1][positionInCell - 1] = lastChar;
 					// printf("succesfully realloced space\n");
 					*(*(buffer + cells - 1) + positionInCell) = lastChar;
-			    positionInCell++;
-          inQuote = true;
+					positionInCell++;
+					inQuote = true;
 					// printf("exiting '\"' case\n");
-          break;
+				break;
 
-        case '\n':
+				case '\n':
 					buffer[cells - 1][positionInCell] = '\0';
-          positionInCell = 0;
+					positionInCell = 0;
 					cells++;
-          rows++;
+					rows++;
 					temp = (char**)realloc(buffer, cells * sizeof(char*));
 					if (temp != NULL)
 					{
@@ -142,23 +142,23 @@ CSV* CSVreadFile(CSV* csvp, FILE* fp)
 						cols = currentColumn;
 					}
 					currentColumn = 1;
-          break;
+					break;
 
-        default:
-          temp = (char*)realloc(*(buffer + cells - 1), (positionInCell + 2) * sizeof(char));
-          if (temp != NULL)
-          {
-            buffer[cells - 1] = temp;
-          }
-          else
-          {
-            // don't know what to do here yet
-          }
-          *(*(buffer + cells - 1) + positionInCell) = lastChar;
-			    positionInCell++;
-          break;
+				default:
+					temp = (char*)realloc(*(buffer + cells - 1), (positionInCell + 2) * sizeof(char));
+					if (temp != NULL)
+					{
+						buffer[cells - 1] = temp;
+					}
+					else
+					{
+						// don't know what to do here yet
+					}
+					*(*(buffer + cells - 1) + positionInCell) = lastChar;
+					positionInCell++;
+					break;
 			}
-      lastChar = readChar;
+			lastChar = readChar;
 		}
 	} while (readChar != EOF);
 	buffer[cells - 1][positionInCell] = '\0';
