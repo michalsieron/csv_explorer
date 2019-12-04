@@ -9,9 +9,6 @@ typedef struct
 	char **table;
 } CSV;
 
-/* 
- * Read given file byte by byte.
- */
 CSV *CSVreadFile(CSV *csvp, FILE *fp);
 char *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col);
 char *CSVsetCell(CSV *csvp, unsigned long row, unsigned short col, char *str);

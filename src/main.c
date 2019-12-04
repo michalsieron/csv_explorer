@@ -12,7 +12,11 @@ int main()
 	if (fp)
 	{
 		printf("\nZostal otworzony plik %s\n", filepath);
-		CSVreadFile(&csv, fp);
+		if (!CSVreadFile(&csv, fp))
+		{
+			printf("Wystapil nieoczekiwany blad. Sprawdz poprawnosc pliku.\n");
+			return 1;
+		}
 		CSVprintInfo(&csv);
 
 		for (unsigned long row = 1; row < csv.rows; row++)
@@ -20,7 +24,7 @@ int main()
 			CSVprintRow(&csv, row);
 			printf("\n");
 		}
-		CSVsetCell(&csv, 1, 1, "new \ncontent boiz");
+		CSVsetCell(&csv, 1, 1, "cell was edited");
 
 		for (unsigned long row = 1; row < csv.rows; row++)
 		{
