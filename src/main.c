@@ -25,13 +25,7 @@ int main()
 			CSVprintRow(&csv, row);
 			printf("\n");
 		}
-		CSVsetCell(&csv, 1, 1, "cell was edited");
 
-		for (unsigned long row = 1; row < csv.rows; row++)
-		{
-			CSVprintRow(&csv, row);
-			printf("\n");
-		}
 		CSVclean(&csv);
 	}
 

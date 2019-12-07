@@ -11,6 +11,8 @@
  */
 CSV *CSVreadFile(CSV *csvp, FILE *fp)
 {
+	unsigned long totalAllocation = 0;
+
 	char **buffer = NULL;
 	char lastChar = '\0';
 	char readChar = '\0';
@@ -33,7 +35,9 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 		if (buffer == NULL)
 		{
 			buffer = (char **)calloc(1, sizeof(char *));
+			totalAllocation += sizeof(char *);
 			(*buffer) = (char *)calloc(1, sizeof(char));
+			totalAllocation += sizeof(char);
 		}
 
 		if (inQuote)
@@ -60,27 +64,16 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 					else
 					{
 						if (quotesInRow % 2 == 1)
-						{
-							temp = (char *)realloc(buffer[cells - 1], (positionInCell + quotesInRow - 1 + 1) * sizeof(char));
-							if (temp == NULL)
-								return NULL;
-
-							buffer[cells - 1] = temp;
-							for (unsigned short i = 0; i < quotesInRow - 1; positionInCell++, i++)
-								buffer[cells - 1][positionInCell] = '"';
-
 							inQuote = false;
-						}
-						else
-						{
-							temp = (char *)realloc(buffer[cells - 1], (positionInCell + quotesInRow + 1) * sizeof(char));
-							if (temp == NULL)
-								return NULL;
 
-							buffer[cells - 1] = temp;
-							for (unsigned short i = 0; i < quotesInRow; positionInCell++, i++)
-								buffer[cells - 1][positionInCell] = '"';
-						}
+						temp = (char *)realloc(buffer[cells - 1], (positionInCell + quotesInRow + 1) * sizeof(char));
+						totalAllocation += (quotesInRow + 1) * sizeof(char);
+						if (temp == NULL)
+							return NULL;
+
+						buffer[cells - 1] = temp;
+						for (unsigned short i = 0; i < quotesInRow; positionInCell++, i++)
+							buffer[cells - 1][positionInCell] = '"';
 
 						lastChar = '"';
 						readChar = c;
@@ -101,6 +94,7 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 			else
 			{
 				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				totalAllocation += sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
@@ -123,12 +117,14 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				positionInCell = 0;
 				cells++;
 				temp = (char **)realloc(buffer, cells * sizeof(char *));
+				totalAllocation += sizeof(char *);
 
 				if (temp == NULL)
 					return NULL;
 
 				buffer = temp;
 				temp = (char *)calloc(1, sizeof(char));
+				totalAllocation += sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
@@ -138,6 +134,16 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				break;
 
 			case '"':
+				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				totalAllocation += sizeof(char);
+
+				if (temp == NULL)
+					return NULL;
+
+				buffer[cells - 1] = temp;
+				buffer[cells - 1][positionInCell] = readChar;
+				positionInCell++;
+
 				inQuote = true;
 				break;
 
@@ -147,12 +153,14 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				cells++;
 				rows++;
 				temp = (char **)realloc(buffer, cells * sizeof(char *));
+				totalAllocation += sizeof(char *);
 
 				if (temp == NULL)
 					return NULL;
 
 				buffer = temp;
 				temp = (char *)calloc(1, sizeof(char));
+				totalAllocation += sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
@@ -172,6 +180,7 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				{
 					free(buffer[cells - 1]);
 					temp = (char **)realloc(buffer, (cells - 1) * sizeof(char *));
+					totalAllocation -= sizeof(char *);
 
 					if (temp == NULL)
 						return NULL;
@@ -185,6 +194,7 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 
 			default:
 				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				totalAllocation += sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
@@ -203,6 +213,7 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 	csvp->cols = cols;
 	csvp->table = buffer;
 
+	printf("Total allocated bytes: %lu\n", totalAllocation);
 	return csvp;
 }
 
@@ -217,6 +228,11 @@ char *CSVsetCell(CSV *csvp, unsigned long row, unsigned short col, char *str)
 	csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
 	strcpy(csvp->table[row * csvp->cols + col], str);
 	return str;
+}
+
+char *CSVProcessString(char *str)
+{
+	sizeof(char);
 }
 
 void CSVprintRow(CSV *csvp, unsigned long row)
