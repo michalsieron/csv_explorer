@@ -15,6 +15,7 @@ int main()
 		if (!CSVreadFile(&csv, fp))
 		{
 			printf("Wystapil nieoczekiwany blad. Sprawdz poprawnosc pliku.\n");
+			fclose(fp);
 			return 1;
 		}
 		CSVprintInfo(&csv);
