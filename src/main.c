@@ -2,6 +2,15 @@
 
 #include "csv.h"
 
+// 4K	-> printf
+// 4K	-> scanf
+// 552B	-> fopen (FILE *)
+// 4K	-> fgetc
+// 8B	-> buffer (String **)
+// 8B	-> buffer[0] (String *)
+// 16B	-> buffer[0][0] (String {char *, unsigned short})
+// 1B	-> buffer[0][0].c_str (char)
+
 int main()
 {
 	char filepath[200] = {0};
@@ -20,7 +29,7 @@ int main()
 		}
 		CSVprintInfo(&csv);
 
-		for (unsigned long row = 1; row < csv.rows; row++)
+		for (unsigned long row = 0; row < csv.rows; row++)
 		{
 			CSVprintRow(&csv, row);
 			printf("\n");

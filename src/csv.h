@@ -2,11 +2,12 @@
 
 #include <stdio.h>
 
+#include "Estring.h"
 typedef struct
 {
 	unsigned short cols;
 	unsigned long rows;
-	char **table;
+	String ***table;
 } CSV;
 
 CSV *CSVreadFile(CSV *csvp, FILE *fp);

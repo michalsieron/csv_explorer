@@ -13,7 +13,7 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 {
 	unsigned long totalAllocation = 0;
 
-	char **buffer = NULL;
+	String ***buffer = NULL;
 	char lastChar = '\0';
 	char readChar = '\0';
 
@@ -32,12 +32,32 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 		lastChar = readChar;
 		readChar = fgetc(fp);
 
+		if (readChar == EOF && cells == 1)
+			return NULL;
+
 		if (buffer == NULL)
 		{
-			buffer = (char **)calloc(1, sizeof(char *));
-			totalAllocation += sizeof(char *);
-			(*buffer) = (char *)calloc(1, sizeof(char));
+			temp = (String ***)calloc(1, sizeof(String **));
+			totalAllocation += sizeof(String **);
+			if (temp == NULL)
+				return NULL;
+
+			buffer = (String ***)temp;
+
+			temp = (String **)calloc(1, sizeof(String *));
+			totalAllocation += sizeof(String *);
+			if (temp == NULL)
+				return NULL;
+
+			buffer[0] = (String **)temp;
+
+			temp = StrCreateEmpty();
+			totalAllocation += sizeof(String);
 			totalAllocation += sizeof(char);
+			if (temp == NULL)
+				return NULL;
+
+			buffer[0][0] = temp;
 		}
 
 		if (inQuote)
@@ -55,10 +75,18 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 					}
 					else if (c == EOF)
 					{
-						for (unsigned long i = 0; i < cells; i++)
-							free(buffer[i]);
+						for (unsigned long i = 0; i < csvp->rows; i++)
+						{
+							for (unsigned short j = 0; j < csvp->cols; j++)
+							{
+								free(csvp->table[i][j]->c_str);
+								free(csvp->table[i][j]);
+							}
 
-						free(buffer);
+							free(csvp->table[i]);
+						}
+
+						free(csvp->table);
 						return NULL;
 					}
 					else
@@ -66,14 +94,13 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 						if (quotesInRow % 2 == 1)
 							inQuote = false;
 
-						temp = (char *)realloc(buffer[cells - 1], (positionInCell + quotesInRow + 1) * sizeof(char));
-						totalAllocation += (quotesInRow + 1) * sizeof(char);
-						if (temp == NULL)
-							return NULL;
-
-						buffer[cells - 1] = temp;
 						for (unsigned short i = 0; i < quotesInRow; positionInCell++, i++)
-							buffer[cells - 1][positionInCell] = '"';
+						{
+							temp = StrAppend(buffer[rows - 1][currentColumn - 1], '"');
+							totalAllocation += sizeof(char);
+							if (temp == NULL)
+								return NULL;
+						}
 
 						lastChar = '"';
 						readChar = c;
@@ -85,22 +112,26 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 			}
 			else if (readChar == EOF)
 			{
-				for (unsigned long i = 0; i < cells; i++)
-					free(buffer[i]);
+				for (unsigned long i = 0; i < csvp->rows; i++)
+				{
+					for (unsigned short j = 0; j < csvp->cols; j++)
+					{
+						free(csvp->table[i][j]->c_str);
+						free(csvp->table[i][j]);
+					}
 
-				free(buffer);
+					free(csvp->table[i]);
+				}
+
+				free(csvp->table);
 				return NULL;
 			}
 			else
 			{
-				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
 				totalAllocation += sizeof(char);
-
 				if (temp == NULL)
 					return NULL;
-
-				buffer[cells - 1] = temp;
-				buffer[cells - 1][positionInCell] = readChar;
 				positionInCell++;
 			}
 		}
@@ -113,59 +144,59 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				break;
 
 			case ',':
-				buffer[cells - 1][positionInCell] = '\0';
 				positionInCell = 0;
 				cells++;
-				temp = (char **)realloc(buffer, cells * sizeof(char *));
-				totalAllocation += sizeof(char *);
+				temp = (String **)realloc(buffer[rows - 1], (currentColumn + 1) * sizeof(String *));
+				totalAllocation += sizeof(String *);
 
 				if (temp == NULL)
 					return NULL;
 
-				buffer = temp;
-				temp = (char *)calloc(1, sizeof(char));
-				totalAllocation += sizeof(char);
+				buffer[rows - 1] = temp;
 
+				temp = StrCreateEmpty();
+				totalAllocation += sizeof(String);
 				if (temp == NULL)
 					return NULL;
 
-				buffer[cells - 1] = temp;
+				buffer[rows - 1][currentColumn] = temp;
 				currentColumn++;
 				break;
 
 			case '"':
-				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
 				totalAllocation += sizeof(char);
-
 				if (temp == NULL)
 					return NULL;
 
-				buffer[cells - 1] = temp;
-				buffer[cells - 1][positionInCell] = readChar;
 				positionInCell++;
-
 				inQuote = true;
 				break;
 
 			case '\n':
-				buffer[cells - 1][positionInCell] = '\0';
 				positionInCell = 0;
 				cells++;
 				rows++;
-				temp = (char **)realloc(buffer, cells * sizeof(char *));
-				totalAllocation += sizeof(char *);
-
+				temp = (String ***)realloc(buffer, rows * sizeof(String **));
+				totalAllocation += sizeof(String **);
 				if (temp == NULL)
 					return NULL;
 
 				buffer = temp;
-				temp = (char *)calloc(1, sizeof(char));
-				totalAllocation += sizeof(char);
 
+				temp = (String **)calloc(1, sizeof(String *));
+				totalAllocation += sizeof(String *);
 				if (temp == NULL)
 					return NULL;
 
-				buffer[cells - 1] = temp;
+				buffer[rows - 1] = temp;
+
+				temp = StrCreateEmpty();
+				totalAllocation += sizeof(char);
+				if (temp == NULL)
+					return NULL;
+
+				buffer[rows - 1][0] = temp;
 
 				if (rows == 2)
 					cols = currentColumn;
@@ -176,38 +207,36 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				break;
 
 			case EOF:
-				if (lastChar == '\n')
+				if (currentColumn != cols && currentColumn != 1)
+					return NULL;
+				else if (lastChar == '\n')
 				{
-					free(buffer[cells - 1]);
-					temp = (char **)realloc(buffer, (cells - 1) * sizeof(char *));
-					totalAllocation -= sizeof(char *);
+					for (unsigned short i = 0; i < currentColumn; i++)
+					{
+						free(buffer[rows - 1][i]->c_str);
+						free(buffer[rows - 1][i]);
+					}
 
-					if (temp == NULL)
-						return NULL;
-
-					buffer = temp;
-					cells--;
+					free(buffer[rows - 1]);
 					rows--;
-					positionInCell = strlen(buffer[cells - 1]);
+					cells--;
+					currentColumn = cols;
+					positionInCell = buffer[rows - 1][currentColumn - 1]->_length - 1;
 				}
 				break;
 
 			default:
-				temp = (char *)realloc(buffer[cells - 1], (positionInCell + 2) * sizeof(char));
+				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
 				totalAllocation += sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
 
-				buffer[cells - 1] = temp;
-				buffer[cells - 1][positionInCell] = readChar;
 				positionInCell++;
 				break;
 			}
 		}
 	} while (readChar != EOF);
-
-	buffer[cells - 1][positionInCell] = '\0';
 
 	csvp->rows = rows;
 	csvp->cols = cols;
@@ -219,20 +248,15 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 
 char *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col)
 {
-	return csvp->table[row * csvp->cols + col];
+	return csvp->table[row][col]->c_str;
 }
 
 char *CSVsetCell(CSV *csvp, unsigned long row, unsigned short col, char *str)
 {
 	free(csvp->table[row * csvp->cols + col]);
 	csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
-	strcpy(csvp->table[row * csvp->cols + col], str);
+	strcpy((char *)(csvp->table[row * csvp->cols + col]), str);
 	return str;
-}
-
-char *CSVProcessString(char *str)
-{
-	sizeof(char);
 }
 
 void CSVprintRow(CSV *csvp, unsigned long row)
@@ -250,8 +274,16 @@ void CSVprintInfo(CSV *csvp)
 
 void CSVclean(CSV *csvp)
 {
-	for (unsigned long i = 0; i < csvp->rows * csvp->cols; i++)
+	for (unsigned long i = 0; i < csvp->rows; i++)
+	{
+		for (unsigned short j = 0; j < csvp->cols; j++)
+		{
+			free(csvp->table[i][j]->c_str);
+			free(csvp->table[i][j]);
+		}
+
 		free(csvp->table[i]);
+	}
 
 	free(csvp->table);
 }
