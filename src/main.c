@@ -2,14 +2,17 @@
 
 #include "csv.h"
 
-// 4K	-> printf
-// 4K	-> scanf
+// 4K		-> printf
+// 4K		-> scanf
 // 552B	-> fopen (FILE *)
-// 4K	-> fgetc
-// 8B	-> buffer (String **)
-// 8B	-> buffer[0] (String *)
+// 4K		-> fgetc
+// 8B		-> buffer (String **)
+// 8B		-> buffer[0] (String *)
 // 16B	-> buffer[0][0] (String {char *, unsigned short})
-// 1B	-> buffer[0][0].c_str (char)
+// 1B		-> buffer[0][0].c_str (char)
+
+// duża liczba zaalokowanych bajtów zwracana przez valgrind'a
+// nie liczy zwolnień pamięci
 
 int main()
 {

@@ -21,7 +21,6 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 	unsigned short cols = 1;
 	unsigned short currentColumn = 1;
 	unsigned long cells = 1;
-	unsigned short positionInCell = 0;
 	unsigned short quotesInRow = 0;
 
 	bool inQuote = false;
@@ -94,10 +93,10 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 						if (quotesInRow % 2 == 1)
 							inQuote = false;
 
-						for (unsigned short i = 0; i < quotesInRow; positionInCell++, i++)
+						for (unsigned short i = 0; i < quotesInRow; i++)
 						{
 							temp = StrAppend(buffer[rows - 1][currentColumn - 1], '"');
-							totalAllocation += sizeof(char);
+							totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
 							if (temp == NULL)
 								return NULL;
 						}
@@ -129,10 +128,9 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 			else
 			{
 				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += sizeof(char);
+				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
 				if (temp == NULL)
 					return NULL;
-				positionInCell++;
 			}
 		}
 		else
@@ -144,10 +142,9 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 				break;
 
 			case ',':
-				positionInCell = 0;
 				cells++;
 				temp = (String **)realloc(buffer[rows - 1], (currentColumn + 1) * sizeof(String *));
-				totalAllocation += sizeof(String *);
+				totalAllocation += (currentColumn + 1) * sizeof(String *);
 
 				if (temp == NULL)
 					return NULL;
@@ -165,20 +162,18 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 
 			case '"':
 				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += sizeof(char);
+				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
 				if (temp == NULL)
 					return NULL;
 
-				positionInCell++;
 				inQuote = true;
 				break;
 
 			case '\n':
-				positionInCell = 0;
 				cells++;
 				rows++;
 				temp = (String ***)realloc(buffer, rows * sizeof(String **));
-				totalAllocation += sizeof(String **);
+				totalAllocation += rows * sizeof(String **);
 				if (temp == NULL)
 					return NULL;
 
@@ -221,18 +216,16 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 					rows--;
 					cells--;
 					currentColumn = cols;
-					positionInCell = buffer[rows - 1][currentColumn - 1]->_length - 1;
 				}
 				break;
 
 			default:
 				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += sizeof(char);
+				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
 
 				if (temp == NULL)
 					return NULL;
 
-				positionInCell++;
 				break;
 			}
 		}
@@ -246,24 +239,97 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 	return csvp;
 }
 
-char *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col)
+String *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col)
 {
-	return csvp->table[row][col]->c_str;
+	if (row < csvp->rows && col < csvp->cols)
+		return csvp->table[row][col];
+	else
+		return NULL;
 }
 
 char *CSVsetCell(CSV *csvp, unsigned long row, unsigned short col, char *str)
 {
-	free(csvp->table[row * csvp->cols + col]);
-	csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
-	strcpy((char *)(csvp->table[row * csvp->cols + col]), str);
+	if (row < csvp->rows && col < csvp->cols)
+	{
+		free(csvp->table[row * csvp->cols + col]);
+		csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
+		strcpy((char *)(csvp->table[row * csvp->cols + col]), str);
+	}
 	return str;
+}
+
+char *CSVprocessString(String str)
+{
+	unsigned short quotesInRow = 0;
+	bool inQuote = false;
+	char *result = (char *)calloc(str._length, sizeof(char));
+	if (result == NULL)
+		return NULL;
+
+	char lastChar = '\0';
+	char readChar = '\0';
+	for (unsigned short i = 0, r = 0; i < str._length; i++)
+	{
+		lastChar = readChar;
+		readChar = str.c_str[i];
+		if (inQuote == false)
+		{
+			if (readChar == '"')
+				inQuote = true;
+			else
+			{
+				result[r] = readChar;
+				r++;
+			}
+		}
+		else
+		{
+			if (readChar == '"')
+				quotesInRow++;
+			else
+			{
+				if (lastChar == '"')
+				{
+					for (unsigned short j = 0; j < quotesInRow / 2; j++, r++)
+						result[r] = '"';
+					if (quotesInRow % 2 == 1)
+						inQuote = false;
+
+					quotesInRow = 0;
+
+					result[r] = readChar;
+					r++;
+				}
+				else
+				{
+					result[r] = readChar;
+					r++;
+				}
+			}
+		}
+	}
+
+	if (strlen(result) < str._length - 1)
+	{
+		char *temp = realloc(result, strlen(result) + 1);
+		if (temp == NULL)
+			return NULL;
+		result = temp;
+	}
+	return result;
 }
 
 void CSVprintRow(CSV *csvp, unsigned long row)
 {
+	char *colName = NULL;
+	char *cellVal = NULL;
 	for (unsigned short col = 0; col < csvp->cols; col++)
 	{
-		printf("%s: %s\n", CSVgetCell(csvp, 0, col), CSVgetCell(csvp, row, col));
+		colName = CSVprocessString(*CSVgetCell(csvp, 0, col));
+		cellVal = CSVprocessString(*CSVgetCell(csvp, row, col));
+		printf("%s: %s\n", colName, cellVal);
+		free(colName);
+		free(cellVal);
 	}
 }
 
