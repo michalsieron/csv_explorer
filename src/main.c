@@ -38,7 +38,7 @@ CSV csvFile;
 
 int main()
 {
-	printf("CSV explorer by Michal Sieron 2019\n\n");
+	printf("CSV explorer by Michal Sieron 2019\n");
 	return mainMenuLoop();
 }
 
@@ -169,7 +169,7 @@ short fileOpsLoop()
 			break;
 
 		default:
-			return InvalidCommand;
+			printErrorMsg(InvalidCommand);
 			break;
 		}
 	}

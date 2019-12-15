@@ -84,10 +84,54 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp, short *error)
 						quotesInRow++;
 						continue;
 					}
-					else if (c == EOF && quotesInRow % 2 != 1)
+					else if (c == EOF && quotesInRow % 2 == 0)
 					{
+						for (unsigned short i = 0; i < currentColumn; i++)
+						{
+							free(csvp->table[csvp->rows - 1][i]->c_str);
+							free(csvp->table[csvp->rows - 1][i]);
+						}
+
+						free(csvp->table[csvp->rows - 1]);
+						csvp->rows--;
+						cells--;
+						currentColumn = csvp->cols;
 						*error = CSVFileIsCorrupted;
 						return NULL;
+					}
+					else if (c == EOF && quotesInRow % 2 == 1)
+					{
+						if (currentColumn != csvp->cols)
+						{
+							for (unsigned short i = 0; i < currentColumn; i++)
+							{
+								free(csvp->table[csvp->rows - 1][i]->c_str);
+								free(csvp->table[csvp->rows - 1][i]);
+							}
+
+							free(csvp->table[csvp->rows - 1]);
+							csvp->rows--;
+							cells--;
+							currentColumn = csvp->cols;
+						}
+						else
+						{
+							for (unsigned short i = 0; i < quotesInRow; i++)
+							{
+								temp = StrAppend(csvp->table[csvp->rows - 1][currentColumn - 1], '"');
+								if (temp == NULL)
+								{
+									*error = CSVAllocationError;
+									return NULL;
+								}
+							}
+							inQuote = false;
+							lastChar = '"';
+							readChar = c;
+							fseek(fp, -1, SEEK_CUR);
+							quotesInRow = 0;
+							break;
+						}
 					}
 					else
 					{
@@ -203,6 +247,16 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp, short *error)
 					csvp->cols = currentColumn;
 				else if (currentColumn != csvp->cols)
 				{
+					for (unsigned short i = 0; i < currentColumn; i++)
+					{
+						free(csvp->table[csvp->rows - 1][i]->c_str);
+						free(csvp->table[csvp->rows - 1][i]);
+					}
+
+					free(csvp->table[csvp->rows - 1]);
+					csvp->rows--;
+					cells--;
+					currentColumn = csvp->cols;
 					*error = CSVFileIsCorrupted;
 					return NULL;
 				}
