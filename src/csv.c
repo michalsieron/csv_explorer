@@ -4,21 +4,14 @@
 #include <string.h>
 
 #include "csv.h"
-/*
- * Funkcja CSVreadFile wczytuje po jednym znaku z podanego pliku. Podczas 
- * jednej iteracji analizuje znak wczytany podczas poprzedniej. Dla każdego znaku
- * alokuje odpowiednią ilość pamięci
- */
-CSV *CSVreadFile(CSV *csvp, FILE *fp)
+CSV *CSVreadFile(CSV *csvp, FILE *fp, short *error)
 {
-	unsigned long totalAllocation = 0;
-
-	String ***buffer = NULL;
+	csvp->table = NULL;
 	char lastChar = '\0';
 	char readChar = '\0';
 
-	unsigned long rows = 1;
-	unsigned short cols = 1;
+	csvp->rows = 1;
+	csvp->cols = 1;
 	unsigned short currentColumn = 1;
 	unsigned long cells = 1;
 	unsigned short quotesInRow = 0;
@@ -26,37 +19,56 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 	bool inQuote = false;
 	void *temp = NULL;
 
+	*error = CSVNoError;
+
 	do
 	{
 		lastChar = readChar;
 		readChar = fgetc(fp);
 
-		if (readChar == EOF && cells == 1)
+		if (readChar == EOF && inQuote == true)
+		{
+			*error = CSVFileIsCorrupted;
 			return NULL;
+		}
 
-		if (buffer == NULL)
+		if (readChar == EOF && cells == 1)
+		{
+			*error = CSVEmptyFile;
+			csvp->rows = 0;
+			csvp->cols = 0;
+			csvp->table = NULL;
+			return NULL;
+		}
+
+		if (csvp->table == NULL)
 		{
 			temp = (String ***)calloc(1, sizeof(String **));
-			totalAllocation += sizeof(String **);
 			if (temp == NULL)
+			{
+				*error = CSVAllocationError;
 				return NULL;
+			}
 
-			buffer = (String ***)temp;
+			csvp->table = (String ***)temp;
 
 			temp = (String **)calloc(1, sizeof(String *));
-			totalAllocation += sizeof(String *);
 			if (temp == NULL)
+			{
+				*error = CSVAllocationError;
 				return NULL;
+			}
 
-			buffer[0] = (String **)temp;
+			csvp->table[0] = (String **)temp;
 
 			temp = StrCreateEmpty();
-			totalAllocation += sizeof(String);
-			totalAllocation += sizeof(char);
 			if (temp == NULL)
+			{
+				*error = CSVAllocationError;
 				return NULL;
+			}
 
-			buffer[0][0] = temp;
+			csvp->table[0][0] = temp;
 		}
 
 		if (inQuote)
@@ -72,20 +84,9 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 						quotesInRow++;
 						continue;
 					}
-					else if (c == EOF)
+					else if (c == EOF && quotesInRow % 2 != 1)
 					{
-						for (unsigned long i = 0; i < csvp->rows; i++)
-						{
-							for (unsigned short j = 0; j < csvp->cols; j++)
-							{
-								free(csvp->table[i][j]->c_str);
-								free(csvp->table[i][j]);
-							}
-
-							free(csvp->table[i]);
-						}
-
-						free(csvp->table);
+						*error = CSVFileIsCorrupted;
 						return NULL;
 					}
 					else
@@ -95,10 +96,12 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 
 						for (unsigned short i = 0; i < quotesInRow; i++)
 						{
-							temp = StrAppend(buffer[rows - 1][currentColumn - 1], '"');
-							totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
+							temp = StrAppend(csvp->table[csvp->rows - 1][currentColumn - 1], '"');
 							if (temp == NULL)
+							{
+								*error = CSVAllocationError;
 								return NULL;
+							}
 						}
 
 						lastChar = '"';
@@ -111,26 +114,17 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 			}
 			else if (readChar == EOF)
 			{
-				for (unsigned long i = 0; i < csvp->rows; i++)
-				{
-					for (unsigned short j = 0; j < csvp->cols; j++)
-					{
-						free(csvp->table[i][j]->c_str);
-						free(csvp->table[i][j]);
-					}
-
-					free(csvp->table[i]);
-				}
-
-				free(csvp->table);
+				*error = CSVFileIsCorrupted;
 				return NULL;
 			}
 			else
 			{
-				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
+				temp = StrAppend(csvp->table[csvp->rows - 1][currentColumn - 1], readChar);
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 			}
 		}
 		else
@@ -143,119 +137,139 @@ CSV *CSVreadFile(CSV *csvp, FILE *fp)
 
 			case ',':
 				cells++;
-				temp = (String **)realloc(buffer[rows - 1], (currentColumn + 1) * sizeof(String *));
-				totalAllocation += (currentColumn + 1) * sizeof(String *);
+				temp = (String **)realloc(csvp->table[csvp->rows - 1], (currentColumn + 1) * sizeof(String *));
 
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
-				buffer[rows - 1] = temp;
+				csvp->table[csvp->rows - 1] = temp;
 
 				temp = StrCreateEmpty();
-				totalAllocation += sizeof(String);
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
-				buffer[rows - 1][currentColumn] = temp;
+				csvp->table[csvp->rows - 1][currentColumn] = temp;
 				currentColumn++;
 				break;
 
 			case '"':
-				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
+				temp = StrAppend(csvp->table[csvp->rows - 1][currentColumn - 1], readChar);
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
 				inQuote = true;
 				break;
 
 			case '\n':
 				cells++;
-				rows++;
-				temp = (String ***)realloc(buffer, rows * sizeof(String **));
-				totalAllocation += rows * sizeof(String **);
+				csvp->rows++;
+				temp = (String ***)realloc(csvp->table, csvp->rows * sizeof(String **));
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
-				buffer = temp;
+				csvp->table = temp;
 
 				temp = (String **)calloc(1, sizeof(String *));
-				totalAllocation += sizeof(String *);
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
-				buffer[rows - 1] = temp;
+				csvp->table[csvp->rows - 1] = temp;
 
 				temp = StrCreateEmpty();
-				totalAllocation += sizeof(char);
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
-				buffer[rows - 1][0] = temp;
+				csvp->table[csvp->rows - 1][0] = temp;
 
-				if (rows == 2)
-					cols = currentColumn;
-				else if (currentColumn != cols)
+				if (csvp->rows == 2)
+					csvp->cols = currentColumn;
+				else if (currentColumn != csvp->cols)
+				{
+					*error = CSVFileIsCorrupted;
 					return NULL;
+				}
 
 				currentColumn = 1;
 				break;
 
 			case EOF:
-				if (currentColumn != cols && currentColumn != 1)
+				if (currentColumn != csvp->cols && currentColumn != 1)
+				{
+					*error = CSVFileIsCorrupted;
 					return NULL;
+				}
 				else if (lastChar == '\n')
 				{
 					for (unsigned short i = 0; i < currentColumn; i++)
 					{
-						free(buffer[rows - 1][i]->c_str);
-						free(buffer[rows - 1][i]);
+						free(csvp->table[csvp->rows - 1][i]->c_str);
+						free(csvp->table[csvp->rows - 1][i]);
 					}
 
-					free(buffer[rows - 1]);
-					rows--;
+					free(csvp->table[csvp->rows - 1]);
+					csvp->rows--;
 					cells--;
-					currentColumn = cols;
+					currentColumn = csvp->cols;
 				}
 				break;
 
 			default:
-				temp = StrAppend(buffer[rows - 1][currentColumn - 1], readChar);
-				totalAllocation += (buffer[rows - 1][currentColumn - 1]->_length + 1) * sizeof(char);
+				temp = StrAppend(csvp->table[csvp->rows - 1][currentColumn - 1], readChar);
 
 				if (temp == NULL)
+				{
+					*error = CSVAllocationError;
 					return NULL;
+				}
 
 				break;
 			}
 		}
 	} while (readChar != EOF);
 
-	csvp->rows = rows;
-	csvp->cols = cols;
-	csvp->table = buffer;
-
-	printf("Total allocated bytes: %lu\n", totalAllocation);
 	return csvp;
 }
 
-String *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col)
+unsigned long CSVgetRows(CSV *csvp)
 {
-	if (row < csvp->rows && col < csvp->cols)
-		return csvp->table[row][col];
-	else
-		return NULL;
+	return csvp->rows;
 }
 
-char *CSVsetCell(CSV *csvp, unsigned long row, unsigned short col, char *str)
+unsigned short CSVgetCols(CSV *csvp)
 {
-	if (row < csvp->rows && col < csvp->cols)
+	return csvp->cols;
+}
+
+String *CSVgetCell(CSV *csvp, unsigned long row, unsigned short col, short *error)
+{
+	if (row < CSVgetRows(csvp) && col < CSVgetCols(csvp))
 	{
-		free(csvp->table[row * csvp->cols + col]);
-		csvp->table[row * csvp->cols + col] = calloc(strlen(str) + 1, sizeof(char));
-		strcpy((char *)(csvp->table[row * csvp->cols + col]), str);
+		*error = CSVNoError;
+		return csvp->table[row][col];
 	}
-	return str;
+	else
+	{
+		*error = CSVIndexError;
+		return NULL;
+	}
 }
 
 char *CSVprocessString(String str)
@@ -319,30 +333,37 @@ char *CSVprocessString(String str)
 	return result;
 }
 
-void CSVprintRow(CSV *csvp, unsigned long row)
+void CSVprintRow(CSV *csvp, unsigned long row, short *error)
 {
+	if (row >= CSVgetRows(csvp))
+	{
+		*error = CSVIndexError;
+		return CSVIndexError;
+	}
 	char *colName = NULL;
 	char *cellVal = NULL;
-	for (unsigned short col = 0; col < csvp->cols; col++)
+	printf("#ROW: %lu\n", row);
+	for (unsigned short col = 0, cols = CSVgetCols(csvp); col < cols; col++)
 	{
-		colName = CSVprocessString(*CSVgetCell(csvp, 0, col));
-		cellVal = CSVprocessString(*CSVgetCell(csvp, row, col));
+		colName = CSVprocessString(*CSVgetCell(csvp, 0, col, error));
+		cellVal = CSVprocessString(*CSVgetCell(csvp, row, col, error));
 		printf("%s: %s\n", colName, cellVal);
 		free(colName);
 		free(cellVal);
 	}
+	*error = CSVNoError;
 }
 
 void CSVprintInfo(CSV *csvp)
 {
-	printf("Dokument CSV zawiera %lu wierszy po %hu kolumn kazdy.\n", csvp->rows - 1, csvp->cols);
+	printf("CSV file contains %lu rows %hu cols each.\n", CSVgetRows(csvp) - 1, CSVgetCols(csvp));
 }
 
 void CSVclean(CSV *csvp)
 {
-	for (unsigned long i = 0; i < csvp->rows; i++)
+	for (unsigned long i = 0, rows = CSVgetRows(csvp); i < rows; i++)
 	{
-		for (unsigned short j = 0; j < csvp->cols; j++)
+		for (unsigned short j = 0, cols = CSVgetCols(csvp); j < cols; j++)
 		{
 			free(csvp->table[i][j]->c_str);
 			free(csvp->table[i][j]);
@@ -352,4 +373,29 @@ void CSVclean(CSV *csvp)
 	}
 
 	free(csvp->table);
+}
+
+void CSVprintErrorMsg(short errorCode)
+{
+	switch (errorCode)
+	{
+	case CSVAllocationError:
+		printf("There was a memory allocation problem. Perhaps your file is too big?\n");
+		break;
+
+	case CSVIndexError:
+		printf("Provided row number is too big!\n");
+		break;
+
+	case CSVEmptyFile:
+		printf("Provided file is empty!\n");
+		break;
+
+	case CSVFileIsCorrupted:
+		printf("Provided file is corrupted!\n");
+		break;
+
+	default:
+		break;
+	}
 }
