@@ -15,7 +15,10 @@ String *StrCreateEmpty()
 
 	temp = (char *)calloc(1, sizeof(char));
 	if (temp == NULL)
+	{
+		free(str);
 		return NULL;
+	}
 
 	str->c_str = temp;
 	str->c_str[str->_length - 1] = 0;
@@ -33,7 +36,10 @@ String *StrFromCStr(char *cstr)
 	str->_length = strlen(cstr) + 1;
 	temp = (char *)calloc(str->_length, sizeof(char));
 	if (temp == NULL)
+	{
+		free(str);
 		return NULL;
+	}
 
 	str->c_str = temp;
 	strcpy(str->c_str, cstr);

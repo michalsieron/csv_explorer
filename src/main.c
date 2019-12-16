@@ -120,7 +120,7 @@ short fileOpsLoop()
 	{
 		printf("\nType letter to choose an option: \n"
 					 "p - print whole table\n"
-					 "r - print one row\n"
+					 "r - print single row\n"
 					 "i - print file info\n"
 					 "c - close opened file\n\n");
 		printf("file> ");
